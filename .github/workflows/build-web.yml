@@ -21,13 +21,13 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore Assignment.sln
+        run: dotnet restore InstagramClone.Web.sln
 
       - name: Build Web
-        run: dotnet build InstagramClone.Web/InstagramClone.Web.csproj --configuration Release --no-restore
+        run: dotnet build InstagramClone.Web.csproj --configuration Release --no-restore
 
       - name: Publish Web
-        run: dotnet publish InstagramClone.Web/InstagramClone.Web.csproj --configuration Release -o "${{env.DOTNET_ROOT}}/webapp"
+        run: dotnet publish InstagramClone.Web.csproj --configuration Release --no-build -o "${{env.DOTNET_ROOT}}/webapp"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
