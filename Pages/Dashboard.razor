@@ -1,0 +1,444 @@
+@page "/dashboard"
+@attribute [Authorize]
+@using InstagramClone.Web.Models
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ApiService ApiService
+@inject ILogger<Dashboard> Logger
+
+<div class="dashboard-container">
+    <div class="navbar">
+        <h1>Media Feed</h1>
+        <nav class="navbar-center">
+            <a href="/dashboard">Feed</a>
+            @if (IsCreator)
+            {
+                <a href="/create-post">Creator Upload</a>
+            }
+            <a href="/profile">Profile</a>
+        </nav>
+        <button class="btn btn-secondary" @onclick="Logout">Logout</button>
+    </div>
+
+    <div class="feed-column">
+        <div class="search-box">
+            <input type="text" class="search-input" @bind="SearchQuery" placeholder="Search by title or caption" />
+            <input type="text" class="search-input" @bind="SearchLocation" placeholder="Location" />
+            <input type="text" class="search-input" @bind="SearchPerson" placeholder="Person present" />
+            <button class="btn btn-primary" @onclick="SearchPosts">Search</button>
+            <button class="btn btn-light" @onclick="LoadFeed">Reset</button>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="loading">Loading posts...</div>
+        }
+        else if (Posts.Count == 0)
+        {
+            <div class="no-posts">
+                <h3>No posts yet</h3>
+                <p>Try a different search or check back later.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var post in Posts)
+            {
+                <div class="post-card">
+                    <div class="post-header">
+                        <img src="@(post.User?.AvatarUrl ?? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23ddd'/%3E%3C/svg%3E")"
+                             alt="@(post.User?.Username ?? "Unknown")" class="avatar" />
+                        <div>
+                            <h4>@post.User?.Username</h4>
+                            <small>@post.CreatedAt.ToString("MMM dd, yyyy")</small>
+                        </div>
+                    </div>
+
+                    <div class="post-meta">
+                        <h3>@post.Title</h3>
+                        @if (!string.IsNullOrWhiteSpace(post.Location))
+                        {
+                            <p><strong>Location:</strong> @post.Location</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(post.PeoplePresent))
+                        {
+                            <p><strong>People:</strong> @post.PeoplePresent</p>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(post.ImageUrl))
+                    {
+                        <img src="@post.ImageUrl" alt="@post.Title" class="post-image" />
+                    }
+
+                    <div class="post-actions">
+                        <button class="action-btn" title="Comments">
+                            💬 <span>@post.CommentCount</span>
+                        </button>
+                        <span class="rating-summary">⭐ @post.AverageRating.ToString("0.0") (@post.RatingCount)</span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(post.Caption))
+                    {
+                        <p class="caption"><strong>@post.User?.Username</strong> @post.Caption</p>
+                    }
+
+                    <div class="comments-box">
+                        <h5>Comments</h5>
+                        @if (CommentsByPost.TryGetValue(post.Id, out var comments) && comments.Any())
+                        {
+                            @foreach (var comment in comments)
+                            {
+                                <p class="comment-line"><strong>@comment.User?.Username:</strong> @comment.Content</p>
+                            }
+                        }
+                        else
+                        {
+                            <p class="muted">No comments yet.</p>
+                        }
+
+                        @if (!IsCreator)
+                        {
+                            <div class="comment-entry">
+                                <input class="form-control" @bind="NewCommentByPost[post.Id]" placeholder="Write a comment" />
+                                <button class="btn btn-primary" @onclick="() => SubmitComment(post.Id)">Post</button>
+                            </div>
+
+                            <div class="rating-entry">
+                                <label>Rate this image:</label>
+                                <select class="form-control" @bind="SelectedRatingByPost[post.Id]">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                </select>
+                                <button class="btn btn-primary" @onclick="() => SubmitRating(post.Id)">Rate</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    .dashboard-container {
+        padding: 0;
+    }
+
+    .navbar {
+        background: white;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .navbar h1 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .navbar-center {
+        display: flex;
+        gap: 24px;
+    }
+
+    .navbar-center a {
+        color: #262626;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .feed-column {
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .search-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto auto;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .search-input, .form-control {
+        border: 1px solid #ddd;
+        padding: 0.55rem;
+        border-radius: 4px;
+        font-size: 0.95rem;
+    }
+
+    .loading, .no-posts {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .post-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 1.25rem;
+    }
+
+    .post-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .post-header div {
+        margin-left: 12px;
+    }
+
+    .post-header h4 {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    .post-header small {
+        color: #999;
+    }
+
+    .post-meta {
+        padding: 0.75rem 1rem;
+    }
+
+    .post-meta h3 {
+        margin: 0 0 0.35rem 0;
+        font-size: 1rem;
+    }
+
+    .post-meta p {
+        margin: 0.2rem 0;
+        color: #555;
+        font-size: 0.9rem;
+    }
+
+    .post-image {
+        width: 100%;
+        max-height: 600px;
+        object-fit: cover;
+    }
+
+    .post-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #262626;
+    }
+
+    .rating-summary {
+        font-size: 0.9rem;
+        color: #444;
+    }
+
+    .caption {
+        padding: 12px 16px;
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    .comments-box {
+        padding: 0.9rem 1rem 1rem 1rem;
+        border-top: 1px solid #f0f0f0;
+    }
+
+    .comments-box h5 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .comment-line {
+        margin: 0.15rem 0;
+        font-size: 0.9rem;
+    }
+
+    .muted {
+        color: #888;
+        font-size: 0.9rem;
+    }
+
+    .comment-entry, .rating-entry {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        margin-top: 0.65rem;
+    }
+
+    .rating-entry label {
+        grid-column: 1 / -1;
+        font-size: 0.85rem;
+        color: #555;
+    }
+
+    .btn {
+        padding: 0.55rem 0.9rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #0095f6;
+        color: white;
+    }
+
+    .btn-light {
+        background: #f3f3f3;
+        color: #333;
+    }
+
+    .btn-secondary {
+        background: #efefef;
+        color: #333;
+    }
+</style>
+
+@code {
+    private readonly Dictionary<Guid, List<CommentModel>> CommentsByPost = new();
+    private readonly Dictionary<Guid, string> NewCommentByPost = new();
+    private readonly Dictionary<Guid, int> SelectedRatingByPost = new();
+    private List<PostModel> Posts = new();
+    private bool IsLoading = true;
+    private bool IsCreator;
+    private string SearchQuery = string.Empty;
+    private string SearchLocation = string.Empty;
+    private string SearchPerson = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        IsCreator = string.Equals(user?.Role, "Creator", StringComparison.OrdinalIgnoreCase);
+        await LoadFeed();
+    }
+
+    private async Task LoadFeed()
+    {
+        try
+        {
+            IsLoading = true;
+            Posts = await ApiService.GetFeedAsync();
+            await LoadCommentsForVisiblePosts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading feed");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SearchPosts()
+    {
+        try
+        {
+            IsLoading = true;
+            var hasFilters = !string.IsNullOrWhiteSpace(SearchQuery)
+                || !string.IsNullOrWhiteSpace(SearchLocation)
+                || !string.IsNullOrWhiteSpace(SearchPerson);
+
+            Posts = hasFilters
+                ? await ApiService.SearchPostsAsync(SearchQuery, SearchLocation, SearchPerson)
+                : await ApiService.GetFeedAsync();
+
+            await LoadCommentsForVisiblePosts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error searching posts");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task LoadCommentsForVisiblePosts()
+    {
+        CommentsByPost.Clear();
+        NewCommentByPost.Clear();
+        SelectedRatingByPost.Clear();
+
+        foreach (var post in Posts)
+        {
+            var comments = await ApiService.GetCommentsAsync(post.Id);
+            CommentsByPost[post.Id] = comments;
+            NewCommentByPost[post.Id] = string.Empty;
+            SelectedRatingByPost[post.Id] = 5;
+        }
+    }
+
+    private async Task SubmitComment(Guid postId)
+    {
+        if (!NewCommentByPost.TryGetValue(postId, out var commentText) || string.IsNullOrWhiteSpace(commentText))
+        {
+            return;
+        }
+
+        var created = await ApiService.AddCommentAsync(postId, commentText.Trim());
+        if (created != null)
+        {
+            CommentsByPost[postId].Insert(0, created);
+            NewCommentByPost[postId] = string.Empty;
+
+            var post = Posts.FirstOrDefault(p => p.Id == postId);
+            if (post != null)
+            {
+                post.CommentCount += 1;
+            }
+        }
+    }
+
+    private async Task SubmitRating(Guid postId)
+    {
+        if (!SelectedRatingByPost.TryGetValue(postId, out var ratingValue))
+        {
+            ratingValue = 5;
+        }
+
+        var response = await ApiService.RatePostAsync(postId, ratingValue);
+        if (response != null)
+        {
+            var post = Posts.FirstOrDefault(p => p.Id == postId);
+            if (post != null)
+            {
+                post.AverageRating = response.AverageRating;
+                post.RatingCount = response.RatingCount;
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+    }
+}

@@ -1,0 +1,304 @@
+@page "/create-post"
+@attribute [Authorize]
+@using System.IO
+@inject NavigationManager Navigation
+@inject ApiService ApiService
+@inject AuthService AuthService
+@inject ILogger<CreatePost> Logger
+
+<div class="dashboard-container">
+    <div class="navbar">
+        <h1>Creator Studio</h1>
+        <nav class="navbar-center">
+            <a href="/dashboard">Feed</a>
+            <a href="/create-post">Creator Upload</a>
+            <a href="/profile">Profile</a>
+        </nav>
+        <button class="btn btn-secondary" @onclick="GoBack">Back</button>
+    </div>
+
+    <div class="create-post-container">
+        @if (!IsCreator)
+        {
+            <div class="create-post-card">
+                <h2>Creator Access Required</h2>
+                <p>Only creator accounts can upload media content.</p>
+                <button class="btn btn-primary" @onclick="GoBack">Go to Feed</button>
+            </div>
+        }
+        else
+        {
+            <div class="create-post-card">
+                <h2>Upload Image Content</h2>
+
+                @if (!string.IsNullOrEmpty(SuccessMessage))
+                {
+                    <div class="alert alert-success">@SuccessMessage</div>
+                }
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger">@ErrorMessage</div>
+                }
+
+                <EditForm Model="PostModel" OnValidSubmit="HandleCreatePost">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label for="title">Title</label>
+                        <InputText id="title" class="form-control" @bind-Value="PostModel.Title" placeholder="Enter media title" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="caption">Caption</label>
+                        <InputTextArea id="caption" class="form-control" @bind-Value="PostModel.Caption"
+                                       placeholder="Describe this image" rows="4" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <InputText id="location" class="form-control" @bind-Value="PostModel.Location"
+                                   placeholder="Where was this captured?" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="people">People Present</label>
+                        <InputText id="people" class="form-control" @bind-Value="PostModel.PeoplePresent"
+                                   placeholder="Comma separated names or tags" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageFile">Upload Image</label>
+                        <InputFile id="imageFile" class="form-control" OnChange="HandleFileSelected" accept="image/*" />
+                        <small class="form-text">Image content only (max 5MB)</small>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ImagePreviewUrl))
+                    {
+                        <div class="image-preview">
+                            <img src="@ImagePreviewUrl" alt="Preview" style="max-width: 100%; max-height: 400px;" />
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-primary" disabled="@(IsLoading || string.IsNullOrEmpty(ImagePreviewUrl))">
+                        @if (IsLoading)
+                        {
+                            <span>Publishing...</span>
+                        }
+                        else
+                        {
+                            <span>Publish</span>
+                        }
+                    </button>
+                </EditForm>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .create-post-container {
+        max-width: 680px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .create-post-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        padding: 2rem;
+    }
+
+    .create-post-card h2 {
+        margin-bottom: 1.5rem;
+        color: #262626;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.45rem;
+        font-weight: 500;
+        color: #262626;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d3d3d3;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #262626;
+        box-shadow: 0 0 0 2px rgba(38, 38, 38, 0.1);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 0.45rem;
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    .image-preview {
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        text-align: center;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 1rem;
+    }
+
+    .btn-primary {
+        background: #0095f6;
+        color: white;
+        width: 100%;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background: #0186e4;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+
+@code {
+    private CreatePostModel PostModel = new();
+    private bool IsLoading;
+    private bool IsCreator;
+    private string SuccessMessage = string.Empty;
+    private string ErrorMessage = string.Empty;
+    private string ImagePreviewUrl = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        IsCreator = string.Equals(user?.Role, "Creator", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            ErrorMessage = string.Empty;
+            var file = e.File;
+
+            if (file == null)
+            {
+                ErrorMessage = "Please select an image";
+                return;
+            }
+
+            if (file.Size > 5 * 1024 * 1024)
+            {
+                ErrorMessage = "File size must be less than 5MB";
+                return;
+            }
+
+            using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            var buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer, 0, buffer.Length);
+            var base64 = Convert.ToBase64String(buffer);
+            ImagePreviewUrl = $"data:{file.ContentType};base64,{base64}";
+            PostModel.ImageUrl = ImagePreviewUrl;
+            Logger.LogInformation("Image selected: {fileName} ({fileSize} bytes)", file.Name, file.Size);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error reading file");
+            ErrorMessage = "Error reading image file";
+        }
+    }
+
+    private async Task HandleCreatePost()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+
+        try
+        {
+            if (!IsCreator)
+            {
+                ErrorMessage = "Only creator accounts can upload posts.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(PostModel.Title))
+            {
+                ErrorMessage = "Please enter a title";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ImagePreviewUrl))
+            {
+                ErrorMessage = "Please select an image";
+                return;
+            }
+
+            var success = await ApiService.CreatePostAsync(PostModel);
+            if (success)
+            {
+                SuccessMessage = "Post created successfully. Redirecting...";
+                PostModel = new();
+                ImagePreviewUrl = string.Empty;
+                await Task.Delay(1200);
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                ErrorMessage = "Failed to create post. Check your role and input values.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating post");
+            ErrorMessage = "An error occurred while creating the post";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+}

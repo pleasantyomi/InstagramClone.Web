@@ -1,0 +1,357 @@
+@page "/profile"
+@attribute [Authorize]
+@using InstagramClone.Web.Models
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject ApiService ApiService
+@inject ILogger<Profile> Logger
+
+<div class="dashboard-container">
+    <div class="navbar">
+        <h1> Instagram Clone</h1>
+        <nav class="navbar-center">
+            <a href="/dashboard">Feed</a>
+            <a href="/create-post">Create Post</a>
+            <a href="/profile">Profile</a>
+        </nav>
+        <button class="btn btn-secondary" @onclick="GoBack">Back</button>
+    </div>
+
+    <div class="profile-container">
+        @if (IsLoading)
+        {
+            <div class="loading">Loading profile...</div>
+        }
+        else if (UserProfile != null)
+        {
+            <div class="profile-header">
+                <div class="profile-avatar-section">
+                    <img src="@UserProfile.AvatarUrl" alt="@UserProfile.Username" class="profile-avatar" />
+                </div>
+
+                <div class="profile-info">
+                    <div class="profile-username-actions">
+                        <h2>@UserProfile.Username</h2>
+                        <button class="btn btn-secondary btn-sm" @onclick="Logout">Logout</button>
+                    </div>
+
+                    <p class="profile-bio">@UserProfile.Bio</p>
+
+                    <div class="profile-stats">
+                        <div class="stat">
+                            <strong>@UserProfile.PostCount</strong>
+                            <span>Posts</span>
+                        </div>
+                        <div class="stat">
+                            <strong>@UserProfile.FollowerCount</strong>
+                            <span>Followers</span>
+                        </div>
+                        <div class="stat">
+                            <strong>@UserProfile.FollowingCount</strong>
+                            <span>Following</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-email">
+                        <strong>Email:</strong> @UserProfile.Email
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-tabs">
+                <button class="tab-btn @(ActiveTab == "posts" ? "active" : "")" @onclick="@(() => SetTab("posts"))">
+                    📷 Posts
+                </button>
+                <button class="tab-btn @(ActiveTab == "followers" ? "active" : "")" @onclick="@(() => SetTab("followers"))">
+                    👥 Followers
+                </button>
+            </div>
+
+            @* test push *@
+            <div class="profile-content">
+                @if (ActiveTab == "posts")
+                {
+                    <div class="posts-grid">
+                        @foreach (var post in UserPosts)
+                        {
+                            <div class="post-grid-item">
+                                <img src="@post.ImageUrl" alt="Post" class="post-grid-image" />
+                                <div class="post-grid-overlay">
+                                    <div class="post-grid-stats">
+                                        <span>❤️ @post.LikeCount</span>
+                                        <span>💬 @post.CommentCount</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (ActiveTab == "followers")
+                {
+                    <div class="followers-list">
+                        @foreach (var follower in Followers)
+                        {
+                            <div class="follower-item">
+                                <img src="@follower.AvatarUrl" alt="@follower.Username" class="follower-avatar" />
+                                <div class="follower-info">
+                                    <h4>@follower.Username</h4>
+                                    <p>@follower.Bio</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .profile-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .profile-header {
+        display: flex;
+        gap: 3rem;
+        padding: 2rem;
+        background: white;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 2rem;
+    }
+
+    .profile-avatar-section {
+        flex-shrink: 0;
+    }
+
+    .profile-avatar {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .profile-info {
+        flex: 1;
+    }
+
+    .profile-username-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .profile-username-actions h2 {
+        margin: 0;
+        color: #262626;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .profile-bio {
+        color: #262626;
+        margin: 0.5rem 0 1.5rem 0;
+    }
+
+    .profile-stats {
+        display: flex;
+        gap: 3rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stat strong {
+        font-size: 1.3rem;
+        color: #262626;
+    }
+
+    .stat span {
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    .profile-email {
+        color: #666;
+        padding: 1rem;
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+
+    .profile-tabs {
+        display: flex;
+        gap: 0;
+        margin: 2rem 0 1rem 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tab-btn {
+        padding: 1rem 2rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #999;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+    }
+
+    .tab-btn.active {
+        color: #262626;
+        border-bottom-color: #262626;
+    }
+
+    .profile-content {
+        padding: 2rem 0;
+    }
+
+    .posts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .post-grid-item {
+        position: relative;
+        overflow: hidden;
+        aspect-ratio: 1;
+        background: #f0f0f0;
+    }
+
+    .post-grid-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .post-grid-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .post-grid-item:hover .post-grid-overlay {
+        opacity: 1;
+    }
+
+    .post-grid-stats {
+        color: white;
+        font-weight: bold;
+        display: flex;
+        gap: 2rem;
+    }
+
+    .followers-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .follower-item {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        align-items: center;
+    }
+
+    .follower-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .follower-info h4 {
+        margin: 0;
+        color: #262626;
+    }
+
+    .follower-info p {
+        margin: 0.25rem 0 0 0;
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+</style>
+
+@code {
+    private UserProfile? UserProfile;
+    private List<PostModel> UserPosts = new();
+    private List<UserProfile> Followers = new();
+    private string ActiveTab = "posts";
+    private bool IsLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            IsLoading = true;
+
+            // Get current user
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // Load profile and posts from API
+            UserProfile = await ApiService.GetUserProfileAsync(currentUser.Id);
+            var allPosts = await ApiService.GetFeedAsync();
+            UserPosts = allPosts.Where(p => p.UserId == currentUser.Id).ToList();
+            Followers = await ApiService.GetFollowersAsync(currentUser.Id);
+
+            Logger.LogInformation($"Loaded profile for {currentUser.Username}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Error loading profile: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+    }
+
+    private void SetTab(string tab)
+    {
+        ActiveTab = tab;
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/dashboard");
+    }
+}
