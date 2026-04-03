@@ -1,22 +1,15 @@
-name: Build Web
+name: Build and deploy Blazor Web App to Azure Web App
 
 on:
   push:
     branches: [main, master]
-    paths:
-      - "InstagramClone.Web/**"
-      - "Assignment.sln"
-      - "InstagramClone.Web/.github/workflows/build-web.yml"
-  pull_request:
-    branches: [main, master]
-    paths:
-      - "InstagramClone.Web/**"
-      - "Assignment.sln"
-      - "InstagramClone.Web/.github/workflows/build-web.yml"
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -34,10 +27,38 @@ jobs:
         run: dotnet build InstagramClone.Web/InstagramClone.Web.csproj --configuration Release --no-restore
 
       - name: Publish Web
-        run: dotnet publish InstagramClone.Web/InstagramClone.Web.csproj --configuration Release --no-build -o publish/web
+        run: dotnet publish InstagramClone.Web/InstagramClone.Web.csproj --configuration Release -o "${{env.DOTNET_ROOT}}/webapp"
 
-      - name: Upload Artifact
+      - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: blazor-wasm
-          path: publish/web/wwwroot
+          path: ${{env.DOTNET_ROOT}}/webapp
+
+  deploy:
+    runs-on: windows-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: blazor-wasm
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_WEB }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_WEB }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_WEB }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: "InstagramCloneweb"
+          slot-name: "Production"
+          package: .
