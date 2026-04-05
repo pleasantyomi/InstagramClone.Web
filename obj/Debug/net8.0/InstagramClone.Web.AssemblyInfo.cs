@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InstagramClone.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bbf07a7dde584fa4ab9a6d27ee19d8e65574063b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+94ee97cfb0b8dc60ce8c6ff2421fc7163aac457e")]
 [assembly: System.Reflection.AssemblyProductAttribute("InstagramClone.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InstagramClone.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -21,13 +21,26 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore InstagramClone.Web.sln
+        run: dotnet restore InstagramClone.Web/InstagramClone.Web.csproj
+
+      - name: Configure production API base URL
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ vars.AZURE_API_BASE_URL }}")) {
+            Write-Error "Repository variable AZURE_API_BASE_URL is required."
+            exit 1
+          }
+
+          $path = "InstagramClone.Web/wwwroot/appsettings.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.ApiBaseUrl = "${{ vars.AZURE_API_BASE_URL }}"
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path -Encoding UTF8
 
       - name: Build Web
-        run: dotnet build InstagramClone.Web.csproj --configuration Release --no-restore
+        run: dotnet build InstagramClone.Web/InstagramClone.Web.csproj --configuration Release --no-restore
 
       - name: Publish Web
-        run: dotnet publish InstagramClone.Web.csproj --configuration Release --no-build -o "${{env.DOTNET_ROOT}}/webapp"
+        run: dotnet publish InstagramClone.Web/InstagramClone.Web.csproj --configuration Release --no-build -o "${{env.DOTNET_ROOT}}/webapp"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -51,14 +64,14 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_WEB }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_WEB }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_WEB }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: "InstagramCloneweb"
+          app-name: ${{ vars.AZURE_WEB_WEBAPP_NAME }}
           slot-name: "Production"
           package: .

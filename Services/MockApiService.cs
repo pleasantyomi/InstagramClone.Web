@@ -1,4 +1,5 @@
 using InstagramClone.Web.Models;
+using Microsoft.AspNetCore.Components;
 
 namespace InstagramClone.Web.Services;
 
@@ -9,8 +10,8 @@ public class MockApiService : ApiService
     private static readonly Guid DemoUser2Id = Guid.Parse("00000000-0000-0000-0000-000000000002");
     private static readonly Guid DemoUser3Id = Guid.Parse("00000000-0000-0000-0000-000000000003");
 
-    public MockApiService(HttpClient http, LocalStorageService localStorage, ILogger<MockApiService> logger)
-        : base(http, localStorage, logger)
+    public MockApiService(HttpClient http, LocalStorageService localStorage, ILogger<MockApiService> logger, IConfiguration configuration, NavigationManager navigationManager)
+        : base(http, localStorage, logger, configuration, navigationManager)
     {
         _logger = logger;
     }

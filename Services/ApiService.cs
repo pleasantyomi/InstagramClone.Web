@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using InstagramClone.Web.Models;
+using Microsoft.AspNetCore.Components;
 
 namespace InstagramClone.Web.Services;
 
@@ -9,13 +10,25 @@ public class ApiService
     private readonly HttpClient _http;
     private readonly LocalStorageService _localStorage;
     private readonly ILogger<ApiService> _logger;
-    private readonly string _baseUrl = "https://instagramcloneapi-b6htf3a6hvhmfvcc.southafricanorth-01.azurewebsites.net";
+    private readonly string _baseUrl;
 
-    public ApiService(HttpClient http, LocalStorageService localStorage, ILogger<ApiService> logger)
+    public ApiService(HttpClient http, LocalStorageService localStorage, ILogger<ApiService> logger, IConfiguration configuration, NavigationManager navigationManager)
     {
         _http = http;
         _localStorage = localStorage;
         _logger = logger;
+
+        if (Uri.TryCreate(navigationManager.BaseUri, UriKind.Absolute, out var currentUri) &&
+            (string.Equals(currentUri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(currentUri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase)))
+        {
+            _baseUrl = "http://localhost:5167"; // Use local API endpoint for development
+        }
+        else
+        {
+            _baseUrl = (configuration["ApiBaseUrl"] ?? throw new InvalidOperationException("ApiBaseUrl is not configured."))
+                .TrimEnd('/');
+        }
     }
 
     private async Task SetAuthHeaderAsync()

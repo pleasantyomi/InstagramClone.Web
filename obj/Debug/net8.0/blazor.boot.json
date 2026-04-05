@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "InstagramClone.Web",
   "resources": {
-    "hash": "sha256-8wpvRg9erT2qjoTa1FI4Y9pVB+WlrARw8JjEpYAS+0g=",
+    "hash": "sha256-ct0TX/NH8fKou3tZf0Afo5d5oZ8YqoQD2CWEB6eykZc=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-4g0GzvOXSwZvTLca4PrWJkoeltz+V9IF/hEFDcnVros="
     },
@@ -223,14 +223,18 @@
       "mscorlib.wasm": "sha256-OWQk7msdg0kG9vfJqVNUrPJ8JkyUipH2afbnYJLsKjk=",
       "netstandard.wasm": "sha256-+Ya7AWY6kwjwbQw9fHax9L8Qnn+UZKQF05aZE4ZOXiY=",
       "System.Private.CoreLib.wasm": "sha256-ouVBjy2oz9hC308fAFLns0mvmtyaeUDXt3C5DAk1muc=",
-      "InstagramClone.Web.wasm": "sha256-lu1TAz780+l8JHioSVWiy7YVSYAtcmWY0k+KaD0yb6o="
+      "InstagramClone.Web.wasm": "sha256-zwcxE/R/gw4M37jatbRRqDdRDRAUq5fTxfZekgVcvRI="
     },
     "pdb": {
-      "InstagramClone.Web.pdb": "sha256-YDkH49D/5LmF5E+7W2P0LozvrE6/UHErpnb9qpUEI/A="
+      "InstagramClone.Web.pdb": "sha256-P09Eh0TjOFIap7hH54fr5X3dPcQFaSY2SP6bGU8aZbA="
     }
   },
   "cacheBootResources": true,
   "debugLevel": -1,
+  "appsettings": [
+    "../appsettings.Development.json",
+    "../appsettings.json"
+  ],
   "globalizationMode": "sharded",
   "extensions": {
     "blazor": {}
